@@ -18,7 +18,11 @@ class MarkdownPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const textColor = Color(0xFF0F172A);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = theme.colorScheme.onSurface;
+    final surface = theme.colorScheme.surface;
+    final surfaceVariant = theme.colorScheme.surfaceContainerHighest;
+    final outline = theme.colorScheme.outlineVariant;
     const fontFallback = <String>[
       'MiSans',
       'Noto Sans SC',
@@ -37,7 +41,7 @@ class MarkdownPreview extends StatelessWidget {
 
     final style = MarkdownStyleSheet.fromTheme(theme).copyWith(
       p: baseText,
-      a: baseText.copyWith(color: const Color(0xFF2563EB)),
+      a: baseText.copyWith(color: theme.colorScheme.primary),
       strong: baseText.copyWith(fontWeight: FontWeight.w700),
       em: baseText.copyWith(fontStyle: FontStyle.italic),
       h1: theme.textTheme.headlineMedium?.copyWith(
@@ -70,28 +74,28 @@ class MarkdownPreview extends StatelessWidget {
         fontSize: 13,
         height: 1.55,
         color: textColor,
-        backgroundColor: const Color(0xFFF1F5F9),
+        backgroundColor: isDark ? surfaceVariant : const Color(0xFFF1F5F9),
       ),
       codeblockPadding: const EdgeInsets.all(14),
       codeblockDecoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: isDark ? surfaceVariant : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: outline),
       ),
       blockquotePadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       blockquoteDecoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: surfaceVariant,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: outline),
       ),
-      horizontalRuleDecoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+      horizontalRuleDecoration: BoxDecoration(
+        border: Border(top: BorderSide(color: outline, width: 1)),
       ),
     );
 
     return Container(
-      color: Colors.white,
+      color: surface,
       child: Markdown(
         data: markdown,
         selectable: false,
@@ -100,7 +104,7 @@ class MarkdownPreview extends StatelessWidget {
         sizedImageBuilder: (config) {
           final resolved = _resolveUri(config.uri);
           if (resolved == null) {
-            return _missingImage(config.alt);
+            return _missingImage(context, config.alt);
           }
           if (resolved.scheme == 'http' || resolved.scheme == 'https') {
             return ClipRRect(
@@ -115,7 +119,7 @@ class MarkdownPreview extends StatelessWidget {
           }
           if (resolved.scheme == 'file' || resolved.scheme.isEmpty) {
             final file = File.fromUri(resolved);
-            if (!file.existsSync()) return _missingImage(config.alt);
+            if (!file.existsSync()) return _missingImage(context, config.alt);
             return ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.file(
@@ -126,7 +130,7 @@ class MarkdownPreview extends StatelessWidget {
               ),
             );
           }
-          return _missingImage(config.alt);
+          return _missingImage(context, config.alt);
         },
         onTapLink: (text, href, title) {
           // Keep it simple: let users copy links from context menu / selection.
@@ -152,23 +156,34 @@ class MarkdownPreview extends StatelessWidget {
     return base.resolveUri(uri);
   }
 
-  Widget _missingImage(String? alt) {
+  Widget _missingImage(BuildContext context, String? alt) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final background =
+        isDark ? cs.surfaceContainerHighest : const Color(0xFFF1F5F9);
+    final border = cs.outlineVariant;
+    final labelStyle = TextStyle(color: cs.onSurfaceVariant);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: background,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.broken_image_outlined,
-              size: 18, color: Color(0xFF64748B)),
+          Icon(
+            Icons.broken_image_outlined,
+            size: 18,
+            color: cs.onSurfaceVariant,
+          ),
           const SizedBox(width: 8),
           Text(
             alt?.isNotEmpty == true ? alt! : '图片无法加载',
-            style: const TextStyle(color: Color(0xFF64748B)),
+            style: labelStyle,
           ),
         ],
       ),

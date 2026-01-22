@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,12 +25,17 @@ class AppState extends ChangeNotifier {
   bool _autoCommit = true;
   bool _busy = false;
   final Set<String> _dirtyFiles = {};
+  ThemePreference _themePreference = ThemePreference.system;
+  Color _themeSeedColor = const Color(0xFFEC4899);
 
   RepoConfig? get config => _config;
   String? get token => _token;
   bool get autoCommit => _autoCommit;
   bool get isBusy => _busy;
   bool get hasRepo => _config != null;
+  ThemeMode get themeMode => _themePreference.toThemeMode();
+  ThemePreference get themePreference => _themePreference;
+  Color get themeSeedColor => _themeSeedColor;
 
   PostRepository? get postRepository =>
       _config == null ? null : PostRepository(_config!);
@@ -39,6 +44,9 @@ class AppState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final configJson = prefs.getString('repo_config');
     _autoCommit = prefs.getBool('auto_commit') ?? true;
+    _themePreference = ThemePreference.fromString(
+      prefs.getString('theme_preference'),
+    );
     _token = await _secureStorage.read(key: 'github_token');
 
     if (configJson != null) {
@@ -49,6 +57,14 @@ class AppState extends ChangeNotifier {
       }
     }
 
+    await refreshThemeSeedColor();
+    notifyListeners();
+  }
+
+  Future<void> setThemePreference(ThemePreference value) async {
+    _themePreference = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('theme_preference', value.value);
     notifyListeners();
   }
 
@@ -76,6 +92,7 @@ class AppState extends ChangeNotifier {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('repo_config', jsonEncode(config.toJson()));
+      await refreshThemeSeedColor();
     } finally {
       _setBusy(false);
     }
@@ -149,8 +166,48 @@ class AppState extends ChangeNotifier {
     return match?.group(1) ?? '#ec4899';
   }
 
+  Future<void> refreshThemeSeedColor() async {
+    final hex = await readThemeHex();
+    _themeSeedColor = _parseHexColor(hex, fallback: _themeSeedColor);
+    notifyListeners();
+  }
+
+  Color _parseHexColor(String hex, {required Color fallback}) {
+    final cleaned = hex.trim().replaceFirst('#', '');
+    if (cleaned.length != 6 && cleaned.length != 8) return fallback;
+    final value = int.tryParse(cleaned, radix: 16);
+    if (value == null) return fallback;
+    if (cleaned.length == 6) return Color(0xFF000000 | value);
+    return Color(value);
+  }
+
   void _setBusy(bool value) {
     _busy = value;
     notifyListeners();
+  }
+}
+
+enum ThemePreference {
+  system('system'),
+  light('light'),
+  dark('dark');
+
+  const ThemePreference(this.value);
+
+  final String value;
+
+  static ThemePreference fromString(String? value) {
+    return ThemePreference.values.firstWhere(
+      (e) => e.value == value,
+      orElse: () => ThemePreference.system,
+    );
+  }
+
+  ThemeMode toThemeMode() {
+    return switch (this) {
+      ThemePreference.system => ThemeMode.system,
+      ThemePreference.light => ThemeMode.light,
+      ThemePreference.dark => ThemeMode.dark,
+    };
   }
 }

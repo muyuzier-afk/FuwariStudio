@@ -1,4 +1,14 @@
-﻿include: package:flutter_lints/flutter.yaml
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - dist/**
+    - tools/**
+    - .dart_tool/**
+    - android/**/build/**
+    - ios/**/build/**
+    - windows/**/build/**
 
 linter:
   rules:
@@ -6,5 +16,3 @@ linter:
     prefer_const_constructors: true
     prefer_const_literals_to_create_immutables: true
     prefer_final_fields: true
-
-

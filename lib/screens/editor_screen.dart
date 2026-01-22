@@ -231,7 +231,7 @@ class _EditorScreenState extends State<EditorScreen> {
 
     final relativePath =
         p.posix.joinAll(p.split(p.relative(destFile.path, from: destDir.path)));
-    final insertText = '![${baseName}]($relativePath)';
+    final insertText = '![$baseName]($relativePath)';
     final selection = _bodyController.selection;
     final text = _bodyController.text;
     final start = selection.start >= 0 ? selection.start : text.length;
@@ -366,15 +366,10 @@ class _EditorScreenState extends State<EditorScreen> {
         );
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF5F6FA),
           appBar: AppBar(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black87,
-            elevation: 0.4,
             title: Text(
               widget.entry.title.isEmpty ? '未命名文章' : widget.entry.title,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             actions: [
               IconButton(
@@ -429,7 +424,6 @@ class _EditorScreenState extends State<EditorScreen> {
                     child: Column(
                       children: [
                         const TabBar(
-                          labelColor: Colors.black87,
                           tabs: [
                             Tab(text: '编写'),
                             Tab(text: '预览'),
@@ -453,19 +447,29 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Widget _buildEditor(AppState appState) {
-    const textColor = Color(0xFF0F172A);
-    const labelColor = Color(0xFF475569);
-    const helperColor = Color(0xFF64748B);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    final textColor = cs.onSurface;
+    final labelColor = cs.onSurfaceVariant;
+    final helperColor = cs.onSurfaceVariant;
+    final panelColor = theme.cardColor;
+    final panelBorder = cs.outlineVariant;
+    final subtleFill =
+        isDark ? cs.surfaceContainerHighest : const Color(0xFFF8FAFC);
+    final shadowColor =
+        isDark ? Colors.black.withAlpha(64) : Colors.black.withAlpha(8);
 
     InputDecoration decoration(String label) {
       return InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: labelColor),
-        floatingLabelStyle: const TextStyle(color: textColor),
+        labelStyle: TextStyle(color: labelColor),
+        floatingLabelStyle: TextStyle(color: textColor),
       );
     }
 
-    const fieldTextStyle = TextStyle(color: textColor);
+    final fieldTextStyle = TextStyle(color: textColor);
 
     List<String> currentTags() {
       return _tagsController.text
@@ -484,16 +488,18 @@ class _EditorScreenState extends State<EditorScreen> {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: panelColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            border: Border.all(color: panelBorder),
+            boxShadow: isDark
+                ? const []
+                : [
+                    BoxShadow(
+                      color: shadowColor,
+                      blurRadius: 10,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
           ),
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -505,22 +511,22 @@ class _EditorScreenState extends State<EditorScreen> {
                   childrenPadding: const EdgeInsets.only(top: 12),
                   initiallyExpanded: true,
                   title: Row(
-                    children: const [
-                      Icon(Icons.tune, size: 20, color: Color(0xFF475569)),
-                      SizedBox(width: 8),
+                    children: [
+                      Icon(Icons.tune, size: 20, color: labelColor),
+                      const SizedBox(width: 8),
                       Text(
                         '文章信息',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
+                          color: textColor,
                         ),
                       ),
                     ],
                   ),
                   subtitle: Text(
                     widget.entry.relativePath,
-                    style: const TextStyle(color: helperColor, fontSize: 12),
+                    style: TextStyle(color: helperColor, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -532,25 +538,24 @@ class _EditorScreenState extends State<EditorScreen> {
                             controller: _titleController,
                             style: fieldTextStyle,
                             decoration: decoration('标题').copyWith(
-                              prefixIcon:
-                                  const Icon(Icons.title, color: labelColor),
+                              prefixIcon: const Icon(Icons.title),
                               helperText: '显示在站点文章列表和页面标题',
-                              helperStyle: const TextStyle(color: helperColor),
+                              helperStyle: TextStyle(color: helperColor),
                             ),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Container(
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
+                            color: subtleFill,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(color: panelBorder),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Padding(
-                                padding: EdgeInsets.only(left: 12),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 12),
                                 child: Text('草稿',
                                     style: TextStyle(
                                         color: textColor,
@@ -573,24 +578,23 @@ class _EditorScreenState extends State<EditorScreen> {
                       style: fieldTextStyle,
                       maxLines: 2,
                       decoration: decoration('摘要').copyWith(
-                        prefixIcon:
-                            const Icon(Icons.short_text, color: labelColor),
+                        prefixIcon: const Icon(Icons.short_text),
                         helperText: '用于 SEO / 列表简介（可选）',
-                        helperStyle: const TextStyle(color: helperColor),
+                        helperStyle: TextStyle(color: helperColor),
                       ),
                     ),
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: subtleFill,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: panelBorder),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             '标签',
                             style: TextStyle(
                                 color: textColor, fontWeight: FontWeight.w700),
@@ -635,7 +639,7 @@ class _EditorScreenState extends State<EditorScreen> {
                           const SizedBox(height: 6),
                           Text(
                             '也支持用逗号分隔：${_tagsController.text.isEmpty ? '例如：flutter, 笔记' : _tagsController.text}',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 color: helperColor, fontSize: 12),
                           ),
                         ],
@@ -652,8 +656,7 @@ class _EditorScreenState extends State<EditorScreen> {
                             controller: _categoryController,
                             style: fieldTextStyle,
                             decoration: decoration('分类').copyWith(
-                              prefixIcon: const Icon(Icons.folder_open,
-                                  color: labelColor),
+                              prefixIcon: const Icon(Icons.folder_open),
                             ),
                           ),
                         ),
@@ -663,10 +666,9 @@ class _EditorScreenState extends State<EditorScreen> {
                             controller: _langController,
                             style: fieldTextStyle,
                             decoration: decoration('语言').copyWith(
-                              prefixIcon:
-                                  const Icon(Icons.language, color: labelColor),
+                              prefixIcon: const Icon(Icons.language),
                               helperText: '例如：zh_CN / en',
-                              helperStyle: const TextStyle(color: helperColor),
+                              helperStyle: TextStyle(color: helperColor),
                             ),
                           ),
                         ),
@@ -680,14 +682,12 @@ class _EditorScreenState extends State<EditorScreen> {
                             controller: _publishedController,
                             style: fieldTextStyle,
                             decoration: decoration('发布日期').copyWith(
-                              prefixIcon: const Icon(Icons.calendar_today,
-                                  color: labelColor),
+                              prefixIcon: const Icon(Icons.calendar_today),
                               helperText: '支持 YYYY-MM-DD 或自动选择',
-                              helperStyle: const TextStyle(color: helperColor),
+                              helperStyle: TextStyle(color: helperColor),
                               suffixIcon: IconButton(
                                 tooltip: '选择日期',
-                                icon:
-                                    const Icon(Icons.event, color: labelColor),
+                                icon: const Icon(Icons.event),
                                 onPressed: () async {
                                   final picked = await showDatePicker(
                                     context: context,
@@ -711,24 +711,21 @@ class _EditorScreenState extends State<EditorScreen> {
                             controller: _updatedController,
                             style: fieldTextStyle,
                             decoration: decoration('更新日期').copyWith(
-                              prefixIcon:
-                                  const Icon(Icons.update, color: labelColor),
+                              prefixIcon: const Icon(Icons.update),
                               helperText: '留空则不写入',
-                              helperStyle: const TextStyle(color: helperColor),
+                              helperStyle: TextStyle(color: helperColor),
                               suffixIcon: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
                                     tooltip: '清空',
-                                    icon: const Icon(Icons.clear,
-                                        color: labelColor),
+                                    icon: const Icon(Icons.clear),
                                     onPressed: () => setState(
                                         () => _updatedController.clear()),
                                   ),
                                   IconButton(
                                     tooltip: '选择日期',
-                                    icon: const Icon(Icons.event,
-                                        color: labelColor),
+                                    icon: const Icon(Icons.event),
                                     onPressed: () async {
                                       final picked = await showDatePicker(
                                         context: context,
@@ -760,10 +757,9 @@ class _EditorScreenState extends State<EditorScreen> {
                             controller: _imageController,
                             style: fieldTextStyle,
                             decoration: decoration('封面图片').copyWith(
-                              prefixIcon: const Icon(Icons.image_outlined,
-                                  color: labelColor),
+                              prefixIcon: const Icon(Icons.image_outlined),
                               helperText: '相对路径（通常与文章同目录）',
-                              helperStyle: const TextStyle(color: helperColor),
+                              helperStyle: TextStyle(color: helperColor),
                             ),
                           ),
                         ),
@@ -786,16 +782,18 @@ class _EditorScreenState extends State<EditorScreen> {
         const SizedBox(height: 16),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: panelColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            border: Border.all(color: panelBorder),
+            boxShadow: isDark
+                ? const []
+                : [
+                    BoxShadow(
+                      color: shadowColor,
+                      blurRadius: 10,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -803,7 +801,7 @@ class _EditorScreenState extends State<EditorScreen> {
               _buildToolbar(appState),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Divider(height: 1, color: Colors.grey.shade200),
+                child: Divider(height: 1, color: panelBorder),
               ),
               ConstrainedBox(
                 constraints: const BoxConstraints(minHeight: 360),
@@ -818,11 +816,11 @@ class _EditorScreenState extends State<EditorScreen> {
                       hintText: '在此编写 Markdown 内容，左侧工具栏可快速插入格式。',
                       border: InputBorder.none,
                     ),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'JetBrains Mono',
                       fontSize: 14,
                       height: 1.5,
-                      color: Color(0xFF0F172A),
+                      color: textColor,
                     ),
                   ),
                 ),
@@ -835,18 +833,30 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Widget _buildPreviewPane(Widget preview) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final panelColor = theme.cardColor;
+    final panelBorder = cs.outlineVariant;
+    final headerFill =
+        isDark ? cs.surfaceContainerHighest : const Color(0xFFF8FAFC);
+    final shadowColor =
+        isDark ? Colors.black.withAlpha(64) : Colors.black.withAlpha(8);
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: panelColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        border: Border.all(color: panelBorder),
+        boxShadow: isDark
+            ? const []
+            : [
+                BoxShadow(
+                  color: shadowColor,
+                  blurRadius: 10,
+                  offset: const Offset(0, 6),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -854,10 +864,10 @@ class _EditorScreenState extends State<EditorScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: headerFill,
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(16)),
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+              border: Border(bottom: BorderSide(color: panelBorder)),
             ),
             child: Row(
               children: [
@@ -866,7 +876,6 @@ class _EditorScreenState extends State<EditorScreen> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
                   ),
                 ),
                 const Spacer(),
@@ -876,7 +885,6 @@ class _EditorScreenState extends State<EditorScreen> {
                     const Text(
                       '实时预览',
                       style: TextStyle(
-                          color: Color(0xFF475569),
                           fontSize: 12,
                           fontWeight: FontWeight.w600),
                     ),
@@ -923,7 +931,7 @@ class _EditorScreenState extends State<EditorScreen> {
               borderRadius:
                   const BorderRadius.vertical(bottom: Radius.circular(16)),
               child: Container(
-                color: const Color(0xFFF8FAFC),
+                color: headerFill,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: preview,
@@ -937,10 +945,16 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Widget _buildToolbar(AppState appState) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final toolbarFill =
+        isDark ? cs.surfaceContainerHighest : const Color(0xFFF8FAFC);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: toolbarFill,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Wrap(
@@ -972,6 +986,7 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Widget _toolbarButton(IconData icon, String tooltip, VoidCallback onTap) {
+    final cs = Theme.of(context).colorScheme;
     return InkWell(
       borderRadius: BorderRadius.circular(6),
       onTap: onTap,
@@ -981,7 +996,7 @@ class _EditorScreenState extends State<EditorScreen> {
           width: 36,
           height: 32,
           alignment: Alignment.center,
-          child: Icon(icon, size: 18, color: const Color(0xFF0F172A)),
+          child: Icon(icon, size: 18, color: cs.onSurface),
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../app_state.dart';
+import 'settings_screen.dart';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
@@ -59,6 +60,21 @@ class _SetupScreenState extends State<SetupScreen> {
     return Consumer<AppState>(
       builder: (context, appState, _) {
         return Scaffold(
+          appBar: AppBar(
+            title: const Text('FuwariStudio'),
+            actions: [
+              IconButton(
+                tooltip: 'Settings',
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  );
+                },
+                icon: const Icon(Icons.settings_outlined),
+              ),
+            ],
+          ),
           body: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),

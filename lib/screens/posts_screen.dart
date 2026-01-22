@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../app_state.dart';
 import '../models/post_entry.dart';
 import '../screens/editor_screen.dart';
+import '../screens/settings_screen.dart';
 
 class PostsScreen extends StatefulWidget {
   const PostsScreen({super.key});
@@ -171,10 +172,7 @@ class _PostsScreenState extends State<PostsScreen> {
     return Consumer<AppState>(
       builder: (context, appState, _) {
         return Scaffold(
-          backgroundColor: const Color(0xFF0C0F16),
           appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
             title: const Text(
               '文章管理',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -184,6 +182,16 @@ class _PostsScreenState extends State<PostsScreen> {
                 tooltip: '刷新',
                 onPressed: _refresh,
                 icon: const Icon(Icons.refresh_rounded),
+              ),
+              IconButton(
+                tooltip: 'Settings',
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  );
+                },
+                icon: const Icon(Icons.settings_outlined),
               ),
               IconButton(
                 tooltip: '提交并推送',
@@ -227,10 +235,12 @@ class _PostsScreenState extends State<PostsScreen> {
 
               final posts = snapshot.data ?? [];
               if (posts.isEmpty) {
-                return const Center(
+                return Center(
                   child: Text(
                     '暂无文章，点击右下角新建',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 );
               }
@@ -239,16 +249,15 @@ class _PostsScreenState extends State<PostsScreen> {
                 onRefresh: _refresh,
                 child: CustomScrollView(
                   slivers: [
-                    const SliverToBoxAdapter(
+                    SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                         child: Text(
                           '最近文章',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
                     ),
@@ -260,7 +269,6 @@ class _PostsScreenState extends State<PostsScreen> {
                         itemBuilder: (context, index) {
                           final post = posts[index];
                           return Card(
-                            color: const Color(0xFF141926),
                             elevation: 3,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
@@ -270,19 +278,22 @@ class _PostsScreenState extends State<PostsScreen> {
                                 post.title,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.white,
                                 ),
                               ),
                               subtitle: Text(
                                 post.relativePath,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Colors.white70),
+                                style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
                               ),
                               leading: CircleAvatar(
                                 backgroundColor: post.draft
-                                    ? Colors.orange.withOpacity(0.15)
-                                    : Colors.green.withOpacity(0.15),
+                                    ? Colors.orange.withAlpha(38)
+                                    : Colors.green.withAlpha(38),
                                 child: Icon(
                                   post.draft
                                       ? Icons.pending_outlined
@@ -295,20 +306,20 @@ class _PostsScreenState extends State<PostsScreen> {
                               trailing: const Icon(
                                 Icons.arrow_forward_ios_rounded,
                                 size: 16,
-                                color: Colors.white54,
                               ),
                               onTap: () async {
+                                final navigator = Navigator.of(context);
                                 final entry =
                                     await appState.postRepository?.loadPost(
                                   File(post.file.path),
                                 );
                                 if (entry == null) return;
-                                await Navigator.push(
-                                  context,
+                                if (!context.mounted) return;
+                                await navigator.push(
                                   MaterialPageRoute(
-                                    builder: (_) => EditorScreen(entry: entry),
-                                  ),
+                                      builder: (_) => EditorScreen(entry: entry)),
                                 );
+                                if (!context.mounted) return;
                                 _refresh();
                               },
                             ),
