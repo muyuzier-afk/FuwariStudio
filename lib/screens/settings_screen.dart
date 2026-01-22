@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../app_state.dart';
 import 'about_screen.dart';
+import 'folders_screen.dart';
+import 'webhook_settings_screen.dart';
+import 'site_config_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -46,6 +49,40 @@ class SettingsScreen extends StatelessWidget {
               ),
               const Divider(height: 24),
               ListTile(
+                title: const Text('文件夹'),
+                subtitle: const Text('用于分类文章（类似标签）'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FoldersScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                title: const Text('Webhook'),
+                subtitle: const Text('创建/修改/删除后触发'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const WebhookSettingsScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                title: const Text('站点信息'),
+                subtitle: const Text('编辑 src/config.ts'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SiteConfigScreen()),
+                  );
+                },
+              ),
+              const Divider(height: 24),
+              ListTile(
                 title: const Text('关于'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
@@ -62,4 +99,3 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 }
-

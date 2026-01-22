@@ -84,4 +84,10 @@ class PostRepository {
     final content = buildFrontMatter(frontMatter, body);
     await entry.file.writeAsString(content);
   }
+
+  Future<void> deletePost(PostEntry entry) async {
+    if (entry.file.existsSync()) {
+      await entry.file.delete();
+    }
+  }
 }

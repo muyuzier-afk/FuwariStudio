@@ -7,10 +7,7 @@ class AboutScreen extends StatelessWidget {
   Future<PackageInfo> _info() => PackageInfo.fromPlatform();
 
   String _formatVersion(PackageInfo info) {
-    final parts = info.version.split('.');
-    final majorMinor =
-        parts.length >= 2 ? '${parts[0]}.${parts[1]}' : info.version;
-    return 'v$majorMinor (build ${info.buildNumber})';
+    return 'v${info.version} (build ${info.buildNumber})';
   }
 
   @override
@@ -21,7 +18,7 @@ class AboutScreen extends StatelessWidget {
         future: _info(),
         builder: (context, snapshot) {
           final info = snapshot.data;
-          final versionText = (info == null) ? 'v0.3' : _formatVersion(info);
+          final versionText = (info == null) ? 'v1.0.0' : _formatVersion(info);
 
           return ListView(
             padding: const EdgeInsets.all(16),

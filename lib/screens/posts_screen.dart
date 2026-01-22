@@ -9,6 +9,66 @@ import '../models/post_entry.dart';
 import '../screens/editor_screen.dart';
 import '../screens/settings_screen.dart';
 
+class _PostSearchDelegate extends SearchDelegate<PostEntry?> {
+  _PostSearchDelegate({required List<PostEntry> posts})
+      : _posts = List<PostEntry>.from(posts);
+
+  final List<PostEntry> _posts;
+
+  @override
+  List<Widget>? buildActions(BuildContext context) {
+    return [
+      if (query.isNotEmpty)
+        IconButton(
+          tooltip: 'Clear',
+          onPressed: () => query = '',
+          icon: const Icon(Icons.clear),
+        ),
+    ];
+  }
+
+  @override
+  Widget? buildLeading(BuildContext context) {
+    return IconButton(
+      tooltip: 'Back',
+      onPressed: () => close(context, null),
+      icon: const Icon(Icons.arrow_back),
+    );
+  }
+
+  List<PostEntry> _filter() {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return _posts;
+    return _posts.where((p) {
+      return p.title.toLowerCase().contains(q) ||
+          p.relativePath.toLowerCase().contains(q);
+    }).toList();
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    final results = _filter();
+    if (results.isEmpty) {
+      return const Center(child: Text('没有匹配的文章'));
+    }
+    return ListView.separated(
+      itemCount: results.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final post = results[index];
+        return ListTile(
+          title: Text(post.title),
+          subtitle: Text(post.relativePath, maxLines: 1, overflow: TextOverflow.ellipsis),
+          onTap: () => close(context, post),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) => buildResults(context);
+}
+
 class PostsScreen extends StatefulWidget {
   const PostsScreen({super.key});
 
@@ -18,6 +78,8 @@ class PostsScreen extends StatefulWidget {
 
 class _PostsScreenState extends State<PostsScreen> {
   late Future<List<PostEntry>> _postsFuture;
+  List<PostEntry> _lastPosts = const [];
+  String? _activeFolder;
 
   @override
   void initState() {
@@ -85,19 +147,9 @@ class _PostsScreenState extends State<PostsScreen> {
       return;
     }
 
-    final repo = appState.postRepository;
-    if (repo == null) return;
-
     final relativePath = p.posix.join('src', 'content', 'posts', '$slug.md');
     try {
-      final entry = await repo.createPost(
-        relativePath: relativePath,
-        title: title,
-      );
-      appState.markDirty(entry.relativePath);
-      if (appState.autoCommit) {
-        await appState.commitDirty(message: 'Add $slug');
-      }
+      final entry = await appState.createPost(relativePath: relativePath, title: title);
       if (!mounted) return;
       await Navigator.push(
         context,
@@ -114,6 +166,60 @@ class _PostsScreenState extends State<PostsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+
+  Future<void> _deletePost(AppState appState, PostEntry entry) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除文章'),
+        content: Text('确定删除“${entry.title}”吗？此操作会删除文件。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true) return;
+    try {
+      await appState.deletePost(entry);
+      _showSnack('已删除：${entry.title}');
+      _refresh();
+    } catch (error) {
+      _showSnack('删除失败：$error');
+    }
+  }
+
+  Future<void> _searchPosts(AppState appState) async {
+    if (_lastPosts.isEmpty) {
+      _showSnack('暂无文章可搜索');
+      return;
+    }
+    final selected = await showSearch<PostEntry?>(
+      context: context,
+      delegate: _PostSearchDelegate(posts: _lastPosts),
+    );
+    if (!mounted || selected == null) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => EditorScreen(entry: selected)),
+    );
+    _refresh();
+  }
+
+  List<PostEntry> _applyFolderFilter(AppState appState, List<PostEntry> posts) {
+    final folder = _activeFolder;
+    if (folder == null) return posts;
+    return posts
+        .where((p) => appState.foldersForPost(p.relativePath).contains(folder))
+        .toList();
   }
 
   Future<void> _commitDirty(AppState appState) async {
@@ -184,6 +290,11 @@ class _PostsScreenState extends State<PostsScreen> {
                 icon: const Icon(Icons.refresh_rounded),
               ),
               IconButton(
+                tooltip: 'Search',
+                onPressed: appState.isBusy ? null : () => _searchPosts(appState),
+                icon: const Icon(Icons.search),
+              ),
+              IconButton(
                 tooltip: 'Settings',
                 onPressed: () async {
                   await Navigator.push(
@@ -234,6 +345,8 @@ class _PostsScreenState extends State<PostsScreen> {
               }
 
               final posts = snapshot.data ?? [];
+              _lastPosts = posts;
+              final filteredPosts = _applyFolderFilter(appState, posts);
               if (posts.isEmpty) {
                 return Center(
                   child: Text(
@@ -261,13 +374,43 @@ class _PostsScreenState extends State<PostsScreen> {
                         ),
                       ),
                     ),
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 44,
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: const Text('全部'),
+                                selected: _activeFolder == null,
+                                onSelected: (_) =>
+                                    setState(() => _activeFolder = null),
+                              ),
+                            ),
+                            for (final folder in appState.folders)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text(folder),
+                                  selected: _activeFolder == folder,
+                                  onSelected: (_) =>
+                                      setState(() => _activeFolder = folder),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
                       sliver: SliverList.separated(
-                        itemCount: posts.length,
+                        itemCount: filteredPosts.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
-                          final post = posts[index];
+                          final post = filteredPosts[index];
                           return Card(
                             elevation: 3,
                             shape: RoundedRectangleBorder(
@@ -321,6 +464,15 @@ class _PostsScreenState extends State<PostsScreen> {
                                 );
                                 if (!context.mounted) return;
                                 _refresh();
+                              },
+                              onLongPress: () async {
+                                final entry =
+                                    await appState.postRepository?.loadPost(
+                                  File(post.file.path),
+                                );
+                                if (entry == null) return;
+                                if (!mounted) return;
+                                await _deletePost(appState, entry);
                               },
                             ),
                           );

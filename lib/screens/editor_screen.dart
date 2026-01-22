@@ -132,12 +132,11 @@ class _EditorScreenState extends State<EditorScreen> {
     if (repo == null) return;
 
     try {
-      await repo.savePost(
+      await appState.savePost(
         entry: widget.entry,
         frontMatter: _buildFrontMatter(),
         body: _bodyController.text,
       );
-      appState.markDirty(widget.entry.relativePath);
 
       if (appState.autoCommit) {
         final sha = await appState.commitDirty(
@@ -641,6 +640,63 @@ class _EditorScreenState extends State<EditorScreen> {
                             '也支持用逗号分隔：${_tagsController.text.isEmpty ? '例如：flutter, 笔记' : _tagsController.text}',
                             style: TextStyle(
                                 color: helperColor, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: subtleFill,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: panelBorder),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '文件夹',
+                            style: TextStyle(
+                                color: textColor, fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 8),
+                          Builder(
+                            builder: (context) {
+                              final selected =
+                                  appState.foldersForPost(widget.entry.relativePath).toSet();
+                              final all = appState.folders;
+                              if (all.isEmpty) {
+                                return Text(
+                                  '暂无文件夹，可在“设置 → 文件夹”中添加。',
+                                  style: TextStyle(
+                                      color: helperColor, fontSize: 12),
+                                );
+                              }
+                              return Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final folder in all)
+                                    FilterChip(
+                                      label: Text(folder),
+                                      selected: selected.contains(folder),
+                                      onSelected: (value) async {
+                                        final next = Set<String>.from(selected);
+                                        if (value) {
+                                          next.add(folder);
+                                        } else {
+                                          next.remove(folder);
+                                        }
+                                        await appState.setFoldersForPost(
+                                          widget.entry.relativePath,
+                                          next.toList(),
+                                        );
+                                      },
+                                    ),
+                                ],
+                              );
+                            },
                           ),
                         ],
                       ),
