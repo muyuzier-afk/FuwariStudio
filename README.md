@@ -1,6 +1,6 @@
 # FuwariStudio
 
-跨平台 Markdown 文章编辑器，专为基于 GitHub 的 Fuwari 博客仓库写作/管理/推送而做。
+跨平台 Markdown 文章编辑器，为Fuwari静态博客而生。
 
 ## 功能
 - 首次启动下载仓库源码（ZIP），自动进入文章目录管理
