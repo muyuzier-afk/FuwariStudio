@@ -33,8 +33,18 @@ class _SetupScreenState extends State<SetupScreen> {
     try {
       await appState.bootstrapRepo(repoUrl, token);
     } catch (error) {
-      _showSnack('初始化失败：$error');
+      _showSnack(_formatBootstrapError(error));
     }
+  }
+
+  String _formatBootstrapError(Object error) {
+    final text = error.toString();
+    if (text.contains('Failed host lookup') ||
+        text.contains('No address associated with hostname') ||
+        text.contains('Network error while calling GitHub API')) {
+      return '无法连接到 GitHub（api.github.com）。请检查网络/DNS；Android 版请确认已添加 INTERNET 权限。';
+    }
+    return '初始化失败：$text';
   }
 
   void _showSnack(String message) {

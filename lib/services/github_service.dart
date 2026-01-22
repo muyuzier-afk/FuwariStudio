@@ -26,6 +26,39 @@ class GitHubService {
   GitHubService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
+  static const Duration _timeout = Duration(seconds: 20);
+
+  Future<http.Response> _get(Uri uri, {String? token}) async {
+    try {
+      return await _client
+          .get(uri, headers: _headers(token))
+          .timeout(_timeout);
+    } catch (e) {
+      throw Exception('Network error while calling GitHub API: $e');
+    }
+  }
+
+  Future<http.Response> _post(Uri uri,
+      {required String token, required String body}) async {
+    try {
+      return await _client
+          .post(uri, headers: _headers(token), body: body)
+          .timeout(_timeout);
+    } catch (e) {
+      throw Exception('Network error while calling GitHub API: $e');
+    }
+  }
+
+  Future<http.Response> _patch(Uri uri,
+      {required String token, required String body}) async {
+    try {
+      return await _client
+          .patch(uri, headers: _headers(token), body: body)
+          .timeout(_timeout);
+    } catch (e) {
+      throw Exception('Network error while calling GitHub API: $e');
+    }
+  }
 
   Never _throwGitHubError(http.Response response) {
     String? message;
@@ -65,7 +98,7 @@ class GitHubService {
     String? token,
   }) async {
     final uri = Uri.https('api.github.com', '/repos/$owner/$repo');
-    final response = await _client.get(uri, headers: _headers(token));
+    final response = await _get(uri, token: token);
     if (response.statusCode != 200) {
       _throwGitHubError(response);
     }
@@ -82,7 +115,7 @@ class GitHubService {
   }) async {
     final uri =
         Uri.https('api.github.com', '/repos/$owner/$repo/zipball/$branch');
-    final response = await _client.get(uri, headers: _headers(token));
+    final response = await _get(uri, token: token);
     if (response.statusCode != 200) {
       _throwGitHubError(response);
     }
@@ -199,7 +232,7 @@ class GitHubService {
   }
 
   Future<Map<String, dynamic>> _getJson(Uri uri, {String? token}) async {
-    final response = await _client.get(uri, headers: _headers(token));
+    final response = await _get(uri, token: token);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwGitHubError(response);
     }
@@ -211,11 +244,8 @@ class GitHubService {
     required String token,
     required Map<String, dynamic> body,
   }) async {
-    final response = await _client.post(
-      uri,
-      headers: _headers(token),
-      body: jsonEncode(body),
-    );
+    final response =
+        await _post(uri, token: token, body: jsonEncode(body));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwGitHubError(response);
     }
@@ -227,11 +257,8 @@ class GitHubService {
     required String token,
     required Map<String, dynamic> body,
   }) async {
-    final response = await _client.patch(
-      uri,
-      headers: _headers(token),
-      body: jsonEncode(body),
-    );
+    final response =
+        await _patch(uri, token: token, body: jsonEncode(body));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwGitHubError(response);
     }

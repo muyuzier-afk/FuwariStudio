@@ -42,11 +42,26 @@ if (Test-Path $ndkRoot) {
 
 & $Flutter --version | Out-Host
 & $Flutter pub get | Out-Host
-& $Flutter build apk --release | Out-Host
 
 $apk = Join-Path $root "build\\app\\outputs\\flutter-apk\\app-release.apk"
+$previousWriteTime = $null
+if (Test-Path $apk) {
+  $previousWriteTime = (Get-Item $apk).LastWriteTimeUtc
+}
+
+& $Flutter build apk --release | Out-Host
+if ($LASTEXITCODE -ne 0) {
+  throw "flutter build apk failed with exit code $LASTEXITCODE"
+}
+
 if (!(Test-Path $apk)) {
   throw "Build finished but APK not found: $apk"
+}
+if ($null -ne $previousWriteTime) {
+  $currentWriteTime = (Get-Item $apk).LastWriteTimeUtc
+  if ($currentWriteTime -le $previousWriteTime) {
+    throw "Build did not produce a new APK (output timestamp did not advance): $apk"
+  }
 }
 
 $distRoot = Join-Path $root "dist\\android"

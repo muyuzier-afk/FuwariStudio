@@ -1,6 +1,6 @@
 name: fuwari_studio
 description: FuwariStudio - cross-platform Markdown editor for Fuwari posts.
-version: 0.2.1+3
+version: 0.2.1+4
 publish_to: 'none'
 
 environment:
