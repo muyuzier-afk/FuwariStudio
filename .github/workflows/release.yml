@@ -5,6 +5,11 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build (e.g. v1.0.0)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -14,10 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
       - name: Create GitHub release (if missing)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -33,6 +40,8 @@ jobs:
     needs: create_release
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -43,7 +52,7 @@ jobs:
           cache: true
       - name: Verify version matches tag
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
           PUBSPEC_VERSION=$(grep -E '^version:' pubspec.yaml | awk '{print $2}')
@@ -61,7 +70,7 @@ jobs:
       - name: Upload APK to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
           APK_IN=build/app/outputs/flutter-apk/app-release.apk
@@ -74,21 +83,20 @@ jobs:
     needs: create_release
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
       - name: Verify version matches tag
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         shell: pwsh
         run: |
-          $pubspec = Get-Content pubspec.yaml -Raw
-          if ($pubspec -match '(?m)^version:\\s*([^\\s]+)\\s*$') {
-            $version = $Matches[1]
-          } else {
-            throw "Unable to parse pubspec.yaml version"
-          }
+          $versionLine = Get-Content pubspec.yaml | Where-Object { $_ -match '^\s*version:\s*' } | Select-Object -First 1
+          if (-not $versionLine) { throw "Unable to parse pubspec.yaml version" }
+          $version = ($versionLine -replace '^\s*version:\s*', '').Trim()
           $core = $version.Split('+')[0]
           $tagCore = $env:TAG.TrimStart('v')
           if ($core -ne $tagCore) {
@@ -99,14 +107,13 @@ jobs:
         run: |
           flutter pub get
           flutter test
-          pwsh -ExecutionPolicy Bypass -File scripts/build_windows_exe.ps1 -Flutter flutter -VersionTag "${{ github.ref_name }}"
+          pwsh -ExecutionPolicy Bypass -File scripts/build_windows_exe.ps1 -Flutter flutter -VersionTag "${{ inputs.tag || github.ref_name }}"
       - name: Upload EXE to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         shell: pwsh
         run: |
           $exe = Join-Path $PWD "dist/windows/FuwariStudio-$env:TAG-win-x64.exe"
           if (!(Test-Path $exe)) { throw "Missing: $exe" }
           gh release upload $env:TAG $exe --clobber
-
