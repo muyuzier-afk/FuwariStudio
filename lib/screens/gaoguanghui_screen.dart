@@ -1,7 +1,54 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class GaoGuangHuiScreen extends StatelessWidget {
+class GaoGuangHuiScreen extends StatefulWidget {
   const GaoGuangHuiScreen({super.key});
+
+  @override
+  State<GaoGuangHuiScreen> createState() => _GaoGuangHuiScreenState();
+}
+
+class _GaoGuangHuiScreenState extends State<GaoGuangHuiScreen> {
+  static const _candleKey = 'gaoguanghui_candle_date';
+  bool _litToday = false;
+  bool _igniting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCandleState();
+  }
+
+  String _todayKey() => DateTime.now().toIso8601String().split('T').first;
+
+  Future<void> _loadCandleState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_candleKey);
+    if (!mounted) return;
+    setState(() => _litToday = stored == _todayKey());
+  }
+
+  Future<void> _ignite() async {
+    if (_litToday || _igniting) {
+      _showSnack('今天已经点燃过了');
+      return;
+    }
+    setState(() {
+      _litToday = true;
+      _igniting = true;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_candleKey, _todayKey());
+    await Future.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+    setState(() => _igniting = false);
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,6 +66,16 @@ class GaoGuangHuiScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          Text(
+            '简要概况',
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _summary,
+            style: textTheme.bodyMedium?.copyWith(height: 1.35),
+          ),
+          const SizedBox(height: 16),
           Card(
             elevation: 0,
             color: cs.surfaceContainerHighest,
@@ -42,25 +99,56 @@ class GaoGuangHuiScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Text(
-            '简要概况',
+            '点燃蜡烛',
             style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                _Candle(
+                  lit: _litToday,
+                  igniting: _igniting,
+                  onTap: _ignite,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _litToday ? '今日已点燃' : '点一下，送上今天的纪念',
+                    style: textTheme.bodyMedium,
+                  ),
+                ),
+                TextButton(
+                  onPressed: _ignite,
+                  child: Text(_litToday ? '已点燃' : '点燃'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           Text(
-            _summary,
-            style: textTheme.bodyMedium?.copyWith(height: 1.35),
+            '相关链接',
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          const ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.link),
+            title: Text('996.icu'),
+            subtitle: SelectableText('https://996.icu'),
           ),
           const SizedBox(height: 12),
           Text(
             '资料摘录',
             style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '（可复制；为你提供的材料原文，未做核实）',
-            style: textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 8),
           const ExpansionTile(
@@ -90,7 +178,20 @@ const String _summary = '''
 据材料描述：事发前工作日多次晚归；事发周六家中处理工作并打开公司 OA 系统，随后突发不适被送医抢救无效。抢救期间仍被拉入工作群，死亡后仍收到催改需求。家属已申请工伤认定。''';
 
 const String _gaoguanghuiContent = '''
-高广辉，早年跟随父母从河南来到广东，童年时曾捡垃圾换取零用钱，大学就读于软件学院，多次兼职缓解拮据，与同校的爱人结婚，至今未育。在公司里，他被晋升为部门经理，猝死前一周的工作日，他最早到家时间为21:38，最晚为22:47。猝死当天是周六，部门有4项工作任务到了截止日，他打开过公司OA系统。抢救期间，他被拉入了一个工作群内。死亡后，有不知情的同事发来消息，拜托他“要把这个改下”。
+生平与经历
+高广辉早年随父母从河南来到广东，童年时捡过垃圾换取零用钱；大学就读软件学院，多次兼职缓解拮据，与同校爱人结婚，至今未育。16 岁时，他在日记中写道：“命运和挫折让我慢慢成长，心理和生理的变化让我清醒，看透生活，分析未来，是努力，努力再努力。”
+
+工作与生活
+他在公司里晋升为部门经理。猝死前一周的工作日，他最早到家 21:38，最晚 22:47。其工位摆放婚纱照和荣誉证书，桌下有拖鞋和行军床。他获得过一座奖杯、一块“编程马拉松”奖牌、九张奖状。身边人回忆，他曾与同学追赶并摁下抢包的小偷。
+
+事发与救治
+2025 年 11 月 29 日（周六）清晨，他称身体不适、到客厅坐一会并处理工作。随后出现晕倒、站不起来及尿失禁等情况，被家属带往医院。医疗记录显示：8:58 拨打 120；约 9:14 到达现场；9:46 转送广东省第二中医院；抢救至 13:00 宣告临床死亡，死因“呼吸心跳骤停，阿斯综合征？”。
+
+工作关联信息
+猝死当天部门有 4 项任务截止，他打开过公司 OA 系统。抢救期间被拉入工作群，死亡后仍收到同事催改消息。既往史记录提及“程序员经常熬夜”“工作强度大压力大”。
+
+家属与工伤申请
+家属认为其在工作中突发疾病后去世，已向人社局申请工伤认定，仍待结果。
 
 120院前医疗急救病历中，既往史提及“程序员经常熬夜”。在转院至广东省第二中医院后，既往史标注“患者家属诉患者为程序员，平时工作强度大压力大”。
 
@@ -119,3 +220,126 @@ const String _gaoguanghuiContent = '''
 2025年高广辉猝死事件（资料摘录）
 事件概况：2025年11月29日，年仅32岁的广州程序员高广辉在周末居家办公时突发不适，送医抢救无效死亡。事件引发了关于“居家加班”是否属于工伤的争议。
 ''';
+
+class _Candle extends StatefulWidget {
+  const _Candle({
+    required this.lit,
+    required this.igniting,
+    required this.onTap,
+  });
+
+  final bool lit;
+  final bool igniting;
+  final VoidCallback onTap;
+
+  @override
+  State<_Candle> createState() => _CandleState();
+}
+
+class _CandleState extends State<_Candle>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _flicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _flicker = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final candleColor = cs.secondaryContainer;
+    final wickColor = cs.onSecondaryContainer.withValues(alpha: 0.7);
+    const flameOuter = Color(0xFFFF8A00);
+    const flameInner = Color(0xFFFFF1B5);
+
+    return InkWell(
+      onTap: widget.onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedBuilder(
+        animation: _flicker,
+        builder: (context, _) {
+          final flicker = widget.lit ? (0.85 + _flicker.value * 0.2) : 0.0;
+          return SizedBox(
+            width: 48,
+            height: 60,
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                Positioned(
+                  bottom: 6,
+                  child: Container(
+                    width: 22,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: candleColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 40,
+                  child: Container(
+                    width: 4,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: wickColor,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 44,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 280),
+                    opacity: widget.lit ? 1 : 0,
+                    child: AnimatedScale(
+                      duration: const Duration(milliseconds: 360),
+                      scale: widget.igniting ? 1.2 : 1.0,
+                      child: Transform.scale(
+                        scale: flicker,
+                        child: Container(
+                          width: 18,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: flameOuter,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: Container(
+                              width: 8,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: flameInner,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

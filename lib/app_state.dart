@@ -35,7 +35,7 @@ class AppState extends ChangeNotifier {
   Color _themeSeedColor = const Color(0xFFEC4899);
   List<String> _folders = const [];
   Map<String, List<String>> _postFolders = const {};
-  WebhookSettings _webhookSettings = const WebhookSettings();
+  List<EventRule> _eventRules = const [];
 
   RepoConfig? get config => _config;
   String? get token => _token;
@@ -48,7 +48,7 @@ class AppState extends ChangeNotifier {
   List<String> get folders => List.unmodifiable(_folders);
   List<String> foldersForPost(String relativePath) =>
       List.unmodifiable(_postFolders[relativePath] ?? const []);
-  WebhookSettings get webhookSettings => _webhookSettings;
+  List<EventRule> get eventRules => List.unmodifiable(_eventRules);
 
   PostRepository? get postRepository =>
       _config == null ? null : PostRepository(_config!);
@@ -62,8 +62,9 @@ class AppState extends ChangeNotifier {
     );
     _folders = _decodeStringList(prefs.getString('folders')) ?? const [];
     _postFolders = _decodePostFolders(prefs.getString('post_folders')) ?? const {};
-    _webhookSettings =
-        WebhookSettings.fromJsonString(prefs.getString('webhook_settings'));
+    _eventRules = _decodeEventRules(prefs.getString('event_rules')) ??
+        _decodeLegacyWebhookSettings(prefs.getString('webhook_settings')) ??
+        const [];
     _token = await _secureStorage.read(key: 'github_token');
 
     if (configJson != null) {
@@ -78,10 +79,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setWebhookSettings(WebhookSettings settings) async {
-    _webhookSettings = settings;
+  Future<void> setEventRules(List<EventRule> rules) async {
+    _eventRules = List<EventRule>.unmodifiable(rules);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('webhook_settings', settings.toJsonString());
+    await prefs.setString('event_rules', jsonEncode(_eventRules.map((r) => r.toJson()).toList()));
     notifyListeners();
   }
 
@@ -89,31 +90,88 @@ class AppState extends ChangeNotifier {
     required String event,
     required Map<String, dynamic> payload,
   }) async {
-    final settings = _webhookSettings;
-    if (!settings.enabled) return;
-    if (settings.url.trim().isEmpty) return;
-    if (!settings.isEventEnabled(event)) return;
+    for (final rule in _eventRules) {
+      if (!rule.enabled) continue;
+      if (rule.event != event) continue;
 
-    final uri = Uri.tryParse(settings.url.trim());
+      final matches = rule.matches(payload);
+      final action = matches ? rule.thenAction : rule.elseActionOrNull;
+      if (action == null || !action.isValid) continue;
+
+      await _sendWebhookAction(
+        action: action,
+        event: event,
+        payload: payload,
+        ruleName: rule.name,
+        matched: matches,
+      );
+    }
+  }
+
+  Future<void> sendWebhookAction({
+    required WebhookAction action,
+    required String event,
+    required Map<String, dynamic> payload,
+    String? ruleName,
+    bool matched = true,
+  }) async {
+    if (!action.isValid) return;
+    await _sendWebhookAction(
+      action: action,
+      event: event,
+      payload: payload,
+      ruleName: ruleName,
+      matched: matched,
+    );
+  }
+
+  Future<void> _sendWebhookAction({
+    required WebhookAction action,
+    required String event,
+    required Map<String, dynamic> payload,
+    String? ruleName,
+    bool matched = true,
+  }) async {
+    final uri = Uri.tryParse(action.url.trim());
     if (uri == null) return;
+
+    final timestamp = DateTime.now().toUtc().toIso8601String();
+    final repoInfo = _config == null
+        ? null
+        : {
+            'owner': _config!.owner,
+            'repo': _config!.repo,
+            'branch': _config!.branch,
+          };
+    final message = _renderTemplate(
+      action.message,
+      {
+        'event': event,
+        'timestamp': timestamp,
+        'owner': _config?.owner ?? '',
+        'repo': _config?.repo ?? '',
+        'branch': _config?.branch ?? '',
+        'path': payload['path']?.toString() ?? '',
+        'title': payload['title']?.toString() ?? '',
+      },
+    );
 
     final body = <String, dynamic>{
       'event': event,
-      'timestamp': DateTime.now().toUtc().toIso8601String(),
-      'repo': _config == null
-          ? null
-          : {
-              'owner': _config!.owner,
-              'repo': _config!.repo,
-              'branch': _config!.branch,
-            },
+      'timestamp': timestamp,
+      'repo': repoInfo,
       'payload': payload,
+      'rule': ruleName,
+      'matched': matched,
     };
+    if (message.trim().isNotEmpty) {
+      body['message'] = message;
+    }
 
     try {
       await _webhookService.sendJson(
         uri: uri,
-        secret: settings.secret,
+        secret: action.secret,
         body: body,
       );
     } catch (_) {
@@ -451,6 +509,72 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
+  List<EventRule>? _decodeEventRules(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map>()
+            .map((e) => EventRule.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  List<EventRule>? _decodeLegacyWebhookSettings(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final enabled = decoded['enabled'] == true;
+      final url = decoded['url']?.toString() ?? '';
+      final secret = decoded['secret']?.toString() ?? '';
+      if (!enabled || url.trim().isEmpty) return null;
+      final eventsRaw = decoded['events'];
+      final events = <String>[];
+      if (eventsRaw is Map) {
+        eventsRaw.forEach((k, v) {
+          if (k == null) return;
+          if (v == true) {
+            events.add(k.toString());
+          }
+        });
+      }
+      final targetEvents =
+          events.isEmpty ? EventRule.defaultEvents : events;
+      return targetEvents
+          .map(
+            (event) => EventRule(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              name: '事件 $event',
+              event: event,
+              enabled: true,
+              conditionText: '',
+              thenAction: WebhookAction(
+                url: url,
+                secret: secret,
+                message: '',
+              ),
+              elseEnabled: false,
+              elseAction: const WebhookAction(),
+            ),
+          )
+          .toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _renderTemplate(String template, Map<String, String> variables) {
+    var result = template;
+    variables.forEach((key, value) {
+      result = result.replaceAll('{$key}', value);
+    });
+    return result;
+  }
+
   void _setBusy(bool value) {
     _busy = value;
     notifyListeners();
@@ -482,73 +606,135 @@ enum ThemePreference {
   }
 }
 
-class WebhookSettings {
-  const WebhookSettings({
-    this.enabled = false,
+class WebhookAction {
+  const WebhookAction({
     this.url = '',
     this.secret = '',
-    this.events = const {},
+    this.message = '',
   });
 
-  final bool enabled;
   final String url;
   final String secret;
+  final String message;
 
-  /// Event allowlist. When empty, all events are enabled.
-  final Map<String, bool> events;
+  bool get isValid => url.trim().isNotEmpty;
 
-  bool isEventEnabled(String event) {
-    if (events.isEmpty) return true;
-    return events[event] ?? false;
-  }
-
-  WebhookSettings copyWith({
-    bool? enabled,
+  WebhookAction copyWith({
     String? url,
     String? secret,
-    Map<String, bool>? events,
+    String? message,
   }) {
-    return WebhookSettings(
-      enabled: enabled ?? this.enabled,
+    return WebhookAction(
       url: url ?? this.url,
       secret: secret ?? this.secret,
-      events: events ?? this.events,
+      message: message ?? this.message,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'enabled': enabled,
         'url': url,
         'secret': secret,
-        'events': events,
+        'message': message,
       };
 
-  String toJsonString() => jsonEncode(toJson());
+  static WebhookAction fromJson(Map<String, dynamic> json) {
+    return WebhookAction(
+      url: json['url']?.toString() ?? '',
+      secret: json['secret']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
+    );
+  }
+}
 
-  static WebhookSettings fromJsonString(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return const WebhookSettings();
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return const WebhookSettings();
-      final enabled = decoded['enabled'] == true;
-      final url = decoded['url']?.toString() ?? '';
-      final secret = decoded['secret']?.toString() ?? '';
-      final events = <String, bool>{};
-      final decodedEvents = decoded['events'];
-      if (decodedEvents is Map) {
-        decodedEvents.forEach((k, v) {
-          if (k == null) return;
-          events[k.toString()] = v == true;
-        });
-      }
-      return WebhookSettings(
-        enabled: enabled,
-        url: url,
-        secret: secret,
-        events: events,
-      );
-    } catch (_) {
-      return const WebhookSettings();
-    }
+class EventRule {
+  const EventRule({
+    required this.id,
+    required this.name,
+    required this.event,
+    required this.enabled,
+    required this.conditionText,
+    required this.thenAction,
+    required this.elseEnabled,
+    required this.elseAction,
+  });
+
+  static const defaultEvents = <String>[
+    'post.created',
+    'post.updated',
+    'post.deleted',
+    'site.updated',
+  ];
+
+  final String id;
+  final String name;
+  final String event;
+  final bool enabled;
+  final String conditionText;
+  final WebhookAction thenAction;
+  final bool elseEnabled;
+  final WebhookAction elseAction;
+
+  bool matches(Map<String, dynamic> payload) {
+    final trimmed = conditionText.trim();
+    if (trimmed.isEmpty) return true;
+    final raw = jsonEncode(payload).toLowerCase();
+    return raw.contains(trimmed.toLowerCase());
+  }
+
+  WebhookAction? get elseActionOrNull =>
+      elseEnabled && elseAction.isValid ? elseAction : null;
+
+  EventRule copyWith({
+    String? id,
+    String? name,
+    String? event,
+    bool? enabled,
+    String? conditionText,
+    WebhookAction? thenAction,
+    bool? elseEnabled,
+    WebhookAction? elseAction,
+  }) {
+    return EventRule(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      event: event ?? this.event,
+      enabled: enabled ?? this.enabled,
+      conditionText: conditionText ?? this.conditionText,
+      thenAction: thenAction ?? this.thenAction,
+      elseEnabled: elseEnabled ?? this.elseEnabled,
+      elseAction: elseAction ?? this.elseAction,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'event': event,
+        'enabled': enabled,
+        'conditionText': conditionText,
+        'thenAction': thenAction.toJson(),
+        'elseEnabled': elseEnabled,
+        'elseAction': elseAction.toJson(),
+      };
+
+  static EventRule fromJson(Map<String, dynamic> json) {
+    return EventRule(
+      id: json['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      name: json['name']?.toString() ?? '事件',
+      event: json['event']?.toString() ?? defaultEvents.first,
+      enabled: json['enabled'] == true,
+      conditionText: json['conditionText']?.toString() ?? '',
+      thenAction: json['thenAction'] is Map
+          ? WebhookAction.fromJson(
+              Map<String, dynamic>.from(json['thenAction'] as Map),
+            )
+          : const WebhookAction(),
+      elseEnabled: json['elseEnabled'] == true,
+      elseAction: json['elseAction'] is Map
+          ? WebhookAction.fromJson(
+              Map<String, dynamic>.from(json['elseAction'] as Map),
+            )
+          : const WebhookAction(),
+    );
   }
 }

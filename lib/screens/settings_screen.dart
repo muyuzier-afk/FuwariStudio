@@ -117,8 +117,8 @@ class SettingsScreen extends StatelessWidget {
                 },
               ),
               ListTile(
-                title: const Text('Webhook'),
-                subtitle: const Text('创建/修改/删除后触发'),
+                title: const Text('事件'),
+                subtitle: const Text('创建事件规则并推送 Webhook'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
                   await Navigator.push(
