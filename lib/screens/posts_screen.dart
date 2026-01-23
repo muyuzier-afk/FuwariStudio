@@ -240,39 +240,6 @@ class _PostsScreenState extends State<PostsScreen> {
     }
   }
 
-  Future<void> _updateToken(AppState appState) async {
-    final controller = TextEditingController(text: appState.token ?? '');
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Update GitHub token'),
-        content: TextField(
-          controller: controller,
-          obscureText: true,
-          decoration: const InputDecoration(
-            labelText: 'Token',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    if (result == true) {
-      await appState.saveToken(controller.text.trim());
-      _showSnack('Token 已更新');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<AppState>(
@@ -309,26 +276,6 @@ class _PostsScreenState extends State<PostsScreen> {
                 onPressed:
                     appState.isBusy ? null : () => _commitDirty(appState),
                 icon: const Icon(Icons.cloud_upload_outlined),
-              ),
-              PopupMenuButton<String>(
-                onSelected: (value) async {
-                  if (value == 'auto') {
-                    await appState.setAutoCommit(!appState.autoCommit);
-                  } else if (value == 'token') {
-                    await _updateToken(appState);
-                  }
-                },
-                itemBuilder: (context) => [
-                  CheckedPopupMenuItem(
-                    value: 'auto',
-                    checked: appState.autoCommit,
-                    child: const Text('自动保存并推送'),
-                  ),
-                  const PopupMenuItem(
-                    value: 'token',
-                    child: Text('更新 GitHub Token'),
-                  ),
-                ],
               ),
             ],
           ),

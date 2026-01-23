@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../widgets/candle_easter_egg.dart';
+import 'gaoguanghui_screen.dart';
+
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
@@ -47,6 +50,18 @@ class AboutScreen extends StatelessWidget {
                 leading: Icon(Icons.link),
                 title: Text('项目地址'),
                 subtitle: SelectableText('https://github.com/muyuzier-afk/FuwariStudio'),
+              ),
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerRight,
+                child: CandleEasterEgg(
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const GaoGuangHuiScreen()),
+                    );
+                  },
+                ),
               ),
             ],
           );

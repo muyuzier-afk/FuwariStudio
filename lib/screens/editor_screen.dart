@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../app_state.dart';
 import '../models/post_entry.dart';
 import '../widgets/markdown_preview.dart';
+import 'image_crop_screen.dart';
 
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key, required this.entry});
@@ -205,22 +207,41 @@ class _EditorScreenState extends State<EditorScreen> {
       return;
     }
 
-    final selectedWidth = await _pickResizeWidth(decoded.width);
-    if (selectedWidth == null) return;
+    if (!mounted) return;
+    final croppedBytes = await Navigator.push<Uint8List>(
+      context,
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => ImageCropScreen(imageBytes: bytes),
+      ),
+    );
+    if (croppedBytes == null) return;
 
-    img.Image output = decoded;
-    if (selectedWidth > 0 && selectedWidth < decoded.width) {
-      output = img.copyResize(decoded, width: selectedWidth);
+    final croppedDecoded = img.decodeImage(croppedBytes);
+    if (croppedDecoded == null) {
+      _showSnack('裁剪失败：不支持的图片格式');
+      return;
     }
 
-    final ext = p.extension(source.path).toLowerCase();
+    final selectedWidth = await _pickResizeWidth(croppedDecoded.width);
+    if (selectedWidth == null) return;
+
+    img.Image output = croppedDecoded;
+    if (selectedWidth > 0 && selectedWidth < croppedDecoded.width) {
+      output = img.copyResize(croppedDecoded, width: selectedWidth);
+    }
+
+    final sourceExt = p.extension(source.path).toLowerCase();
+    final outputExt =
+        (sourceExt == '.jpg' || sourceExt == '.jpeg') ? '.jpg' : '.png';
     final baseName = p.basenameWithoutExtension(source.path);
-    final fileName = '${baseName}_${DateTime.now().millisecondsSinceEpoch}$ext';
+    final fileName =
+        '${baseName}_${DateTime.now().millisecondsSinceEpoch}$outputExt';
     final destDir = widget.entry.file.parent;
     final destFile = File(p.join(destDir.path, fileName));
 
     List<int> encoded;
-    if (ext == '.jpg' || ext == '.jpeg') {
+    if (outputExt == '.jpg') {
       encoded = img.encodeJpg(output, quality: 88);
     } else {
       encoded = img.encodePng(output);
@@ -258,6 +279,7 @@ class _EditorScreenState extends State<EditorScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            final minWidth = originalWidth < 320 ? originalWidth : 320;
             return AlertDialog(
               title: const Text('调整图片大小'),
               content: Column(
@@ -266,7 +288,7 @@ class _EditorScreenState extends State<EditorScreen> {
                   Text('最大宽度：$current px'),
                   Slider(
                     value: current.toDouble(),
-                    min: 320,
+                    min: minWidth.toDouble(),
                     max: originalWidth.toDouble(),
                     divisions: (originalWidth / 80).floor().clamp(1, 20),
                     label: '$current',
@@ -312,22 +334,41 @@ class _EditorScreenState extends State<EditorScreen> {
       return;
     }
 
-    final selectedWidth = await _pickResizeWidth(decoded.width);
-    if (selectedWidth == null) return;
+    if (!mounted) return;
+    final croppedBytes = await Navigator.push<Uint8List>(
+      context,
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => ImageCropScreen(imageBytes: bytes, title: '裁剪封面图'),
+      ),
+    );
+    if (croppedBytes == null) return;
 
-    img.Image output = decoded;
-    if (selectedWidth > 0 && selectedWidth < decoded.width) {
-      output = img.copyResize(decoded, width: selectedWidth);
+    final croppedDecoded = img.decodeImage(croppedBytes);
+    if (croppedDecoded == null) {
+      _showSnack('裁剪失败：不支持的图片格式');
+      return;
     }
 
-    final ext = p.extension(source.path).toLowerCase();
+    final selectedWidth = await _pickResizeWidth(croppedDecoded.width);
+    if (selectedWidth == null) return;
+
+    img.Image output = croppedDecoded;
+    if (selectedWidth > 0 && selectedWidth < croppedDecoded.width) {
+      output = img.copyResize(croppedDecoded, width: selectedWidth);
+    }
+
+    final sourceExt = p.extension(source.path).toLowerCase();
+    final outputExt =
+        (sourceExt == '.jpg' || sourceExt == '.jpeg') ? '.jpg' : '.png';
     final baseName = p.basenameWithoutExtension(source.path);
-    final fileName = '${baseName}_${DateTime.now().millisecondsSinceEpoch}$ext';
+    final fileName =
+        '${baseName}_${DateTime.now().millisecondsSinceEpoch}$outputExt';
     final destDir = widget.entry.file.parent;
     final destFile = File(p.join(destDir.path, fileName));
 
     List<int> encoded;
-    if (ext == '.jpg' || ext == '.jpeg') {
+    if (outputExt == '.jpg') {
       encoded = img.encodeJpg(output, quality: 88);
     } else {
       encoded = img.encodePng(output);
@@ -375,12 +416,6 @@ class _EditorScreenState extends State<EditorScreen> {
                 tooltip: '保存',
                 onPressed: appState.isBusy ? null : () => _save(appState),
                 icon: const Icon(Icons.save_outlined),
-              ),
-              IconButton(
-                tooltip: '插入图片',
-                onPressed:
-                    appState.isBusy ? null : () => _insertImage(appState),
-                icon: const Icon(Icons.image_outlined),
               ),
               IconButton(
                 tooltip: '提交并推送',

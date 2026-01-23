@@ -99,6 +99,7 @@ class MarkdownPreview extends StatelessWidget {
       child: Markdown(
         data: markdown,
         selectable: false,
+        softLineBreak: true,
         padding: const EdgeInsets.all(18),
         styleSheet: style,
         sizedImageBuilder: (config) {

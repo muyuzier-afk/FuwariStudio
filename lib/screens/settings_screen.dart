@@ -10,6 +10,46 @@ import 'site_config_screen.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
+  Future<void> _updateToken(BuildContext context, AppState appState) async {
+    final controller = TextEditingController(text: appState.token ?? '');
+    try {
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('更新 GitHub Token'),
+          content: TextField(
+            controller: controller,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Token',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      );
+
+      if (result == true) {
+        await appState.saveToken(controller.text.trim());
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Token 已更新')),
+        );
+      }
+    } finally {
+      controller.dispose();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AppState>(
@@ -46,6 +86,23 @@ class SettingsScreen extends StatelessWidget {
                           value ? ThemePreference.dark : ThemePreference.light,
                         );
                       },
+              ),
+              SwitchListTile(
+                title: const Text('自动保存并推送'),
+                subtitle: const Text('保存文章后自动提交并推送到 GitHub'),
+                value: appState.autoCommit,
+                onChanged: (value) async {
+                  await appState.setAutoCommit(value);
+                },
+              ),
+              ListTile(
+                title: const Text('更新 GitHub Token'),
+                subtitle:
+                    Text((appState.token?.isNotEmpty == true) ? '已设置' : '未设置'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  await _updateToken(context, appState);
+                },
               ),
               const Divider(height: 24),
               ListTile(
