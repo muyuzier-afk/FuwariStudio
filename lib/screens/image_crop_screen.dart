@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:async';
 
 import 'package:crop_your_image/crop_your_image.dart';
 import 'package:flutter/material.dart';
@@ -21,10 +22,30 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
   final CropController _controller = CropController();
   double? _aspectRatio;
   bool _cropping = false;
+  Timer? _cropTimeout;
 
   void _save() {
+    if (_cropping) return;
     setState(() => _cropping = true);
-    _controller.crop();
+    _cropTimeout?.cancel();
+    _cropTimeout = Timer(const Duration(seconds: 30), () {
+      if (!mounted) return;
+      if (!_cropping) return;
+      setState(() => _cropping = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('裁剪超时，请重试')),
+      );
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _controller.crop();
+    });
+  }
+
+  @override
+  void dispose() {
+    _cropTimeout?.cancel();
+    super.dispose();
   }
 
   @override
@@ -36,7 +57,7 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
         title: Text(widget.title),
         actions: [
           TextButton(
-            onPressed: _cropping ? null : () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context),
             child: const Text('取消'),
           ),
           FilledButton(
@@ -85,9 +106,24 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
                 baseColor: cs.surfaceContainerHighest,
                 maskColor: cs.scrim.withValues(alpha: 0.55),
                 radius: 12,
-                onCropped: (cropped) {
+                onCropped: (result) {
                   if (!mounted) return;
-                  Navigator.pop(context, cropped);
+                  _cropTimeout?.cancel();
+                  if (result is CropSuccess) {
+                    Navigator.pop(context, result.croppedImage);
+                    return;
+                  }
+                  if (result is CropFailure) {
+                    setState(() => _cropping = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('裁剪失败：${result.cause}')),
+                    );
+                    return;
+                  }
+                  setState(() => _cropping = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('裁剪失败：未知错误')),
+                  );
                 },
               ),
             ),
@@ -110,4 +146,3 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
     );
   }
 }
-

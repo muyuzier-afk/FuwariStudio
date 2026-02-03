@@ -10,7 +10,9 @@ class AboutScreen extends StatelessWidget {
   Future<PackageInfo> _info() => PackageInfo.fromPlatform();
 
   String _formatVersion(PackageInfo info) {
-    return 'v${info.version} (build ${info.buildNumber})';
+    final build = info.buildNumber.trim();
+    if (build.isEmpty || build == '0') return 'v${info.version}';
+    return 'v${info.version}.$build';
   }
 
   @override

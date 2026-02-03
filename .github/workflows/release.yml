@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*.*.*"
+      - "v*.*.*.*"
   workflow_dispatch:
     inputs:
       tag:
@@ -76,10 +77,24 @@ jobs:
           set -euo pipefail
           PUBSPEC_VERSION=$(grep -E '^version:' pubspec.yaml | awk '{print $2}')
           CORE=${PUBSPEC_VERSION%%+*}
+          BUILD=""
+          if [[ "$PUBSPEC_VERSION" == *"+"* ]]; then
+            BUILD=${PUBSPEC_VERSION##*+}
+          fi
+
           TAG_CORE=${TAG#v}
-          if [ "$CORE" != "$TAG_CORE" ]; then
-            echo "pubspec.yaml version ($CORE) does not match tag ($TAG_CORE)"
-            exit 1
+          if [[ "$TAG_CORE" == *.*.*.* ]]; then
+            TAG_CORE_3=${TAG_CORE%.*}
+            TAG_BUILD=${TAG_CORE##*.}
+            if [ "$CORE" != "$TAG_CORE_3" ] || [ "$BUILD" != "$TAG_BUILD" ]; then
+              echo "pubspec.yaml version ($CORE+$BUILD) does not match tag ($TAG_CORE)"
+              exit 1
+            fi
+          else
+            if [ "$CORE" != "$TAG_CORE" ]; then
+              echo "pubspec.yaml version ($CORE) does not match tag ($TAG_CORE)"
+              exit 1
+            fi
           fi
       - name: Build (APK)
         run: |
@@ -117,22 +132,72 @@ jobs:
           if (-not $versionLine) { throw "Unable to parse pubspec.yaml version" }
           $version = ($versionLine -replace '^\s*version:\s*', '').Trim()
           $core = $version.Split('+')[0]
+          $build = ($version.Contains('+')) ? $version.Split('+')[1] : ''
           $tagCore = $env:TAG.TrimStart('v')
-          if ($core -ne $tagCore) {
-            throw "pubspec.yaml version ($core) does not match tag ($tagCore)"
+          if (($tagCore -split '\.').Count -ge 4) {
+            $tagParts = $tagCore.Split('.')
+            $tagCore3 = ($tagParts[0..2] -join '.')
+            $tagBuild = $tagParts[3]
+            if ($core -ne $tagCore3 -or $build -ne $tagBuild) {
+              throw "pubspec.yaml version ($core+$build) does not match tag ($tagCore)"
+            }
+          } else {
+            if ($core -ne $tagCore) {
+              throw "pubspec.yaml version ($core) does not match tag ($tagCore)"
+            }
           }
-      - name: Build (single-file EXE)
+
+      - name: Build (MSI installer)
         shell: pwsh
         run: |
           flutter pub get
           flutter test
-          pwsh -ExecutionPolicy Bypass -File scripts/build_windows_exe.ps1 -Flutter flutter -VersionTag "${{ inputs.tag || github.ref_name }}"
-      - name: Upload EXE to release
+          pwsh -ExecutionPolicy Bypass -File scripts/build_msi.ps1 -Flutter flutter
+
+      - name: Sign MSI (optional)
+        env:
+          WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}
+          WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
+          WINDOWS_SIGN_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGN_TIMESTAMP_URL }}
+        shell: pwsh
+        run: |
+          if (-not $env:WINDOWS_PFX_BASE64) {
+            Write-Host "No WINDOWS_PFX_BASE64 secret; skip signing."
+            exit 0
+          }
+
+          $pfxPath = Join-Path $env:RUNNER_TEMP "codesign.pfx"
+          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:WINDOWS_PFX_BASE64))
+
+          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue)?.Source
+          if (-not $signtool) {
+            $candidates = @(
+              "${env:ProgramFiles(x86)}\Windows Kits\10\bin\x64\signtool.exe",
+              "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe",
+              "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.0.22000.0\x64\signtool.exe"
+            ) | Where-Object { Test-Path $_ }
+            $signtool = $candidates | Select-Object -First 1
+          }
+          if (-not $signtool) {
+            Write-Host "signtool.exe not found; skip signing."
+            exit 0
+          }
+
+          $msi = Get-ChildItem "dist/windows" -Filter "*.msi" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $msi) { throw "No MSI found in dist/windows" }
+
+          $tr = $env:WINDOWS_SIGN_TIMESTAMP_URL
+          if (-not $tr) { $tr = "http://timestamp.digicert.com" }
+
+          & $signtool sign /f $pfxPath /p $env:WINDOWS_PFX_PASSWORD /fd sha256 /tr $tr /td sha256 $msi.FullName
+          if ($LASTEXITCODE -ne 0) { throw "signtool failed with exit code $LASTEXITCODE" }
+
+      - name: Upload MSI to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag || github.ref_name }}
         shell: pwsh
         run: |
-          $exe = Join-Path $PWD "dist/windows/FuwariStudio-$env:TAG-win-x64.exe"
-          if (!(Test-Path $exe)) { throw "Missing: $exe" }
-          gh release upload $env:TAG $exe --clobber
+          $msi = Get-ChildItem "dist/windows" -Filter "*.msi" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $msi) { throw "Missing MSI in dist/windows" }
+          gh release upload $env:TAG $msi.FullName --clobber

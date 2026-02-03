@@ -68,14 +68,21 @@ function Require-Success([string]$stepName) {
 }
 
 function To-WixVersion([string]$semver) {
-  $core = $semver.Split("+")[0]
-  $parts = $core.Split(".")
-  if ($parts.Count -gt 4) { $parts = $parts[0..3] }
-  while ($parts.Count -lt 4) { $parts += "0" }
-  $ints = @()
-  foreach ($p in $parts) {
-    $ints += [int]$p
+  $chunks = $semver.Split("+", 2)
+  $core = $chunks[0]
+  $build = 0
+  if ($chunks.Count -gt 1) {
+    $parsed = 0
+    if ([int]::TryParse($chunks[1], [ref]$parsed)) {
+      $build = $parsed
+    }
   }
+
+  $parts = $core.Split(".")
+  while ($parts.Count -lt 3) { $parts += "0" }
+  if ($parts.Count -gt 3) { $parts = $parts[0..2] }
+
+  $ints = @([int]$parts[0], [int]$parts[1], [int]$parts[2], [int]$build)
   return ($ints -join ".")
 }
 

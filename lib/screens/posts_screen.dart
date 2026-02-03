@@ -15,6 +15,33 @@ class _PostSearchDelegate extends SearchDelegate<PostEntry?> {
 
   final List<PostEntry> _posts;
 
+  String _compact(String raw) {
+    return raw
+        .replaceAll('\r', ' ')
+        .replaceAll('\n', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  String? _snippetForBody(PostEntry post, String qLower) {
+    final body = post.body;
+    if (body.isEmpty) return null;
+
+    final scan = body.length > 200000 ? body.substring(0, 200000) : body;
+    final lower = scan.toLowerCase();
+    final idx = lower.indexOf(qLower);
+    if (idx < 0) return null;
+
+    const before = 28;
+    const after = 64;
+    final start = (idx - before).clamp(0, body.length);
+    final end = (idx + qLower.length + after).clamp(0, body.length);
+    final slice = body.substring(start, end);
+    final compact = _compact(slice);
+    if (compact.isEmpty) return null;
+    return (start > 0 ? '…' : '') + compact + (end < body.length ? '…' : '');
+  }
+
   @override
   List<Widget>? buildActions(BuildContext context) {
     return [
@@ -36,13 +63,29 @@ class _PostSearchDelegate extends SearchDelegate<PostEntry?> {
     );
   }
 
-  List<PostEntry> _filter() {
-    final q = query.trim().toLowerCase();
-    if (q.isEmpty) return _posts;
-    return _posts.where((p) {
-      return p.title.toLowerCase().contains(q) ||
-          p.relativePath.toLowerCase().contains(q);
-    }).toList();
+  List<({PostEntry post, String? snippet})> _filter() {
+    final qLower = query.trim().toLowerCase();
+    if (qLower.isEmpty) {
+      final take = _posts.length > 50 ? 50 : _posts.length;
+      return _posts.take(take).map((p) => (post: p, snippet: null)).toList();
+    }
+
+    final results = <({PostEntry post, String? snippet})>[];
+    for (final post in _posts) {
+      if (results.length >= 100) break;
+      final titleMatch = post.title.toLowerCase().contains(qLower);
+      final pathMatch = post.relativePath.toLowerCase().contains(qLower);
+      if (titleMatch || pathMatch) {
+        results.add((post: post, snippet: null));
+        continue;
+      }
+
+      final snippet = _snippetForBody(post, qLower);
+      if (snippet != null) {
+        results.add((post: post, snippet: snippet));
+      }
+    }
+    return results;
   }
 
   @override
@@ -55,10 +98,28 @@ class _PostSearchDelegate extends SearchDelegate<PostEntry?> {
       itemCount: results.length,
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
-        final post = results[index];
+        final post = results[index].post;
+        final snippet = results[index].snippet;
         return ListTile(
           title: Text(post.title),
-          subtitle: Text(post.relativePath, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                post.relativePath,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (snippet != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  snippet,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
           onTap: () => close(context, post),
         );
       },
