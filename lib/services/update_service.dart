@@ -33,7 +33,7 @@ class UpdateService {
   bool isNewerVersion(String latest, String current) {
     final latestParts = _parse(latest);
     final currentParts = _parse(current);
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < 5; i++) {
       final l = latestParts[i];
       final c = currentParts[i];
       if (l > c) return true;
@@ -44,20 +44,26 @@ class UpdateService {
 
   List<int> _parse(String version) {
     final trimmed = version.trim();
-    if (trimmed.isEmpty) return const [0, 0, 0, 0];
+    if (trimmed.isEmpty) return const [0, 0, 0, 0, 0];
 
-    final plusParts = trimmed.split('+');
-    final core = plusParts.first;
-    final buildFromPlus =
-        (plusParts.length > 1) ? int.tryParse(plusParts[1]) : null;
+    String core = trimmed;
+    int? plus;
+    final plusIndex = trimmed.indexOf('+');
+    if (plusIndex >= 0) {
+      core = trimmed.substring(0, plusIndex);
+      plus = int.tryParse(trimmed.substring(plusIndex + 1));
+    }
 
     final coreParts = core.split('.').where((e) => e.isNotEmpty).toList();
     final major = coreParts.isNotEmpty ? int.tryParse(coreParts[0]) ?? 0 : 0;
     final minor = coreParts.length > 1 ? int.tryParse(coreParts[1]) ?? 0 : 0;
     final patch = coreParts.length > 2 ? int.tryParse(coreParts[2]) ?? 0 : 0;
     final buildFromDot = coreParts.length > 3 ? int.tryParse(coreParts[3]) : null;
-    final build = buildFromPlus ?? buildFromDot ?? 0;
+    final revFromDot = coreParts.length > 4 ? int.tryParse(coreParts[4]) : null;
 
-    return [major, minor, patch, build];
+    final build = buildFromDot ?? plus ?? 0;
+    final rev = buildFromDot != null ? (plus ?? revFromDot ?? 0) : 0;
+
+    return [major, minor, patch, build, rev];
   }
 }

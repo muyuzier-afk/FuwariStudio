@@ -46,11 +46,14 @@ class _FuwariEditorAppState extends State<FuwariEditorApp> {
     if (!mounted) return;
 
     final build = package.buildNumber.trim();
-    final currentVersion =
-        (build.isEmpty || build == '0') ? package.version : '${package.version}+$build';
+    final hasBuild = build.isNotEmpty && build != '0';
+    final displayCurrent =
+        hasBuild ? '${package.version}.$build' : package.version;
+    final compareCurrent =
+        hasBuild ? '${package.version}.$build+0' : package.version;
 
-    if (_updateService.isNewerVersion(info.version, currentVersion)) {
-      await _showUpdateDialog(info, currentVersion);
+    if (_updateService.isNewerVersion(info.version, compareCurrent)) {
+      await _showUpdateDialog(info, displayCurrent);
     }
   }
 

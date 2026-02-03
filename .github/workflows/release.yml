@@ -81,19 +81,31 @@ jobs:
           if [[ "$PUBSPEC_VERSION" == *"+"* ]]; then
             BUILD=${PUBSPEC_VERSION##*+}
           fi
+          TAG_FULL=${TAG#v}
+          TAG_NO_PLUS=${TAG_FULL%%+*}
+          TAG_PLUS=""
+          if [[ "$TAG_FULL" == *"+"* ]]; then
+            TAG_PLUS=${TAG_FULL##*+}
+          fi
 
-          TAG_CORE=${TAG#v}
-          if [[ "$TAG_CORE" == *.*.*.* ]]; then
-            TAG_CORE_3=${TAG_CORE%.*}
-            TAG_BUILD=${TAG_CORE##*.}
+          if [[ "$TAG_NO_PLUS" == *.*.*.* ]]; then
+            TAG_CORE_3=${TAG_NO_PLUS%.*}
+            TAG_BUILD=${TAG_NO_PLUS##*.}
             if [ "$CORE" != "$TAG_CORE_3" ] || [ "$BUILD" != "$TAG_BUILD" ]; then
-              echo "pubspec.yaml version ($CORE+$BUILD) does not match tag ($TAG_CORE)"
+              echo "pubspec.yaml version ($CORE+$BUILD) does not match tag ($TAG_FULL)"
               exit 1
             fi
           else
-            if [ "$CORE" != "$TAG_CORE" ]; then
-              echo "pubspec.yaml version ($CORE) does not match tag ($TAG_CORE)"
-              exit 1
+            if [[ "$TAG_FULL" == *"+"* ]]; then
+              if [ "$CORE" != "$TAG_NO_PLUS" ] || [ "$BUILD" != "$TAG_PLUS" ]; then
+                echo "pubspec.yaml version ($CORE+$BUILD) does not match tag ($TAG_FULL)"
+                exit 1
+              fi
+            else
+              if [ "$CORE" != "$TAG_FULL" ]; then
+                echo "pubspec.yaml version ($CORE) does not match tag ($TAG_FULL)"
+                exit 1
+              fi
             fi
           fi
       - name: Build (APK)
@@ -133,17 +145,24 @@ jobs:
           $version = ($versionLine -replace '^\s*version:\s*', '').Trim()
           $core = $version.Split('+')[0]
           $build = ($version.Contains('+')) ? $version.Split('+')[1] : ''
-          $tagCore = $env:TAG.TrimStart('v')
-          if (($tagCore -split '\.').Count -ge 4) {
-            $tagParts = $tagCore.Split('.')
+          $tagFull = $env:TAG.TrimStart('v')
+          $tagNoPlus = $tagFull.Split('+')[0]
+          $tagPlus = ($tagFull.Contains('+')) ? $tagFull.Split('+')[1] : ''
+
+          if (($tagNoPlus -split '\.').Count -ge 4) {
+            $tagParts = $tagNoPlus.Split('.')
             $tagCore3 = ($tagParts[0..2] -join '.')
             $tagBuild = $tagParts[3]
             if ($core -ne $tagCore3 -or $build -ne $tagBuild) {
-              throw "pubspec.yaml version ($core+$build) does not match tag ($tagCore)"
+              throw "pubspec.yaml version ($core+$build) does not match tag ($tagFull)"
+            }
+          } elseif ($tagFull.Contains('+')) {
+            if ($core -ne $tagNoPlus -or $build -ne $tagPlus) {
+              throw "pubspec.yaml version ($core+$build) does not match tag ($tagFull)"
             }
           } else {
-            if ($core -ne $tagCore) {
-              throw "pubspec.yaml version ($core) does not match tag ($tagCore)"
+            if ($core -ne $tagFull) {
+              throw "pubspec.yaml version ($core) does not match tag ($tagFull)"
             }
           }
 

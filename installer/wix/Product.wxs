@@ -19,6 +19,7 @@
 
     <Icon Id="AppIcon" SourceFile="$(var.ProjectDir)windows\runner\resources\app_icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder">
@@ -27,6 +28,7 @@
       <Directory Id="ProgramMenuFolder">
         <Directory Id="AppProgramsFolder" Name="FuwariStudio" />
       </Directory>
+      <Directory Id="DesktopFolder" />
     </Directory>
 
     <DirectoryRef Id="AppProgramsFolder">
@@ -48,9 +50,31 @@
       </Component>
     </DirectoryRef>
 
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="{1D9D4D9E-54D9-4E0A-86A8-70E52274D26F}">
+        <Shortcut
+          Id="DesktopShortcut"
+          Name="FuwariStudio"
+          Description="FuwariStudio"
+          Target="[INSTALLFOLDER]FuwariStudio.exe"
+          WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\FuwariStudio"
+          Name="desktop_shortcut"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
     <Feature Id="ProductFeature" Title="FuwariStudio" Level="1">
       <ComponentGroupRef Id="AppFiles" />
       <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
     </Feature>
+
+    <UIRef Id="WixUI_InstallDir" />
+    <UIRef Id="WixUI_ErrorProgressText" />
   </Product>
 </Wix>
