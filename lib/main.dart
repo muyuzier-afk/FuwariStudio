@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'app_state.dart';
 import 'screens/posts_screen.dart';
-import 'screens/setup_screen.dart';
+import 'screens/guided_setup_screen.dart';
 import 'services/update_service.dart';
 import 'theme/app_theme.dart';
 
@@ -112,7 +112,7 @@ class _FuwariEditorAppState extends State<FuwariEditorApp> {
               seedColor: seed,
             ),
             themeMode: state.themeMode,
-            home: state.hasRepo ? const PostsScreen() : const SetupScreen(),
+            home: state.hasRepo ? const PostsScreen() : const GuidedSetupScreen(),
           );
         },
       ),
