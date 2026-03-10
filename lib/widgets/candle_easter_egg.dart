@@ -53,9 +53,9 @@ class _CandleEasterEggState extends State<CandleEasterEgg>
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(6),
-            child: AnimatedBuilder(
-              animation: _flicker,
-              builder: (context, _) {
+          child: ListenableBuilder(
+            listenable: _flicker,
+            builder: (context, _) {
                 return CustomPaint(
                   size: const Size(42, 42),
                   painter: _CandlePainter(

@@ -271,8 +271,8 @@ class _CandleState extends State<_Candle>
     return InkWell(
       onTap: widget.onTap,
       borderRadius: BorderRadius.circular(16),
-      child: AnimatedBuilder(
-        animation: _flicker,
+      child: ListenableBuilder(
+        listenable: _flicker,
         builder: (context, _) {
           final flicker = widget.lit ? (0.85 + _flicker.value * 0.2) : 0.0;
           return SizedBox(
