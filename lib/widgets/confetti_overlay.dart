@@ -77,8 +77,8 @@ class _ConfettiOverlayState extends State<ConfettiOverlay>
         widget.child,
         if (_particles.isNotEmpty)
           Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _controller,
+            child: ListenableBuilder(
+              listenable: _controller,
               builder: (context, child) {
                 return CustomPaint(
                   painter: _ConfettiPainter(_particles),
