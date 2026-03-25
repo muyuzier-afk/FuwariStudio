@@ -55,15 +55,13 @@ String buildFrontMatter(Map<String, dynamic> data, String body) {
     return value?.toString() ?? '';
   }
 
-  void writeList(String key, List<dynamic> list) {
+  void writeInlineList(String key, List<dynamic> list) {
     if (list.isEmpty) {
       writeField(key, '[]');
       return;
     }
-    buffer.writeln('$key:');
-    for (final item in list) {
-      buffer.writeln('  - ${item.toString()}');
-    }
+    final items = list.map((e) => _formatScalar(e.toString())).join(', ');
+    buffer.writeln('$key: [$items]');
   }
 
   if (data['title'] != null) writeField('title', data['title'].toString());
@@ -79,10 +77,12 @@ String buildFrontMatter(Map<String, dynamic> data, String body) {
   if (data['image'] != null) {
     writeField('image', data['image'].toString());
   }
-  if (data['tags'] != null && data['tags'] is List) {
-    writeList('tags', data['tags'] as List<dynamic>);
-  } else if (data.containsKey('tags')) {
-    writeField('tags', data['tags'].toString());
+  if (data['tags'] != null) {
+    if (data['tags'] is List) {
+      writeInlineList('tags', data['tags'] as List<dynamic>);
+    } else {
+      writeInlineList('tags', [data['tags'].toString()]);
+    }
   }
   if (data['category'] != null) {
     writeField('category', data['category'].toString());
