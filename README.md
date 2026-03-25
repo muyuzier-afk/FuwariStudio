@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>A GitHub-native Markdown editor for static blog publishing.</strong><br>
+  <strong>A Git-native Markdown editor for static blog publishing.</strong><br>
   Built for a cleaner writing workflow on Windows and Android.
 </p>
 
@@ -163,18 +163,6 @@ scripts/build_msi.ps1
 ```bash
 flutter build apk --release
 ```
-
----
-
-## Roadmap
-
-- Better post management UI
-- Git diff preview
-- Draft autosave
-- Multi-repository support
-- macOS support
-
----
 
 ## Contributing
 
