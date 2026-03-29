@@ -32,6 +32,7 @@ class AppState extends ChangeNotifier {
   bool _busy = false;
   final Set<String> _dirtyFiles = {};
   ThemePreference _themePreference = ThemePreference.system;
+  FontPreference _fontPreference = FontPreference.system;
   Color _themeSeedColor = const Color(0xFFEC4899);
   List<String> _folders = const [];
   Map<String, List<String>> _postFolders = const {};
@@ -44,6 +45,7 @@ class AppState extends ChangeNotifier {
   bool get hasRepo => _config != null;
   ThemeMode get themeMode => _themePreference.toThemeMode();
   ThemePreference get themePreference => _themePreference;
+  FontPreference get fontPreference => _fontPreference;
   Color get themeSeedColor => _themeSeedColor;
   List<String> get folders => List.unmodifiable(_folders);
   List<String> foldersForPost(String relativePath) =>
@@ -59,6 +61,9 @@ class AppState extends ChangeNotifier {
     _autoCommit = prefs.getBool('auto_commit') ?? true;
     _themePreference = ThemePreference.fromString(
       prefs.getString('theme_preference'),
+    );
+    _fontPreference = FontPreference.fromString(
+      prefs.getString('font_preference'),
     );
     _folders = _decodeStringList(prefs.getString('folders')) ?? const [];
     _postFolders = _decodePostFolders(prefs.getString('post_folders')) ?? const {};
@@ -241,6 +246,13 @@ class AppState extends ChangeNotifier {
     _themePreference = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('theme_preference', value.value);
+    notifyListeners();
+  }
+
+  Future<void> setFontPreference(FontPreference value) async {
+    _fontPreference = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('font_preference', value.value);
     notifyListeners();
   }
 
@@ -603,6 +615,22 @@ enum ThemePreference {
       ThemePreference.light => ThemeMode.light,
       ThemePreference.dark => ThemeMode.dark,
     };
+  }
+}
+
+enum FontPreference {
+  system('system'),
+  miSans('misans');
+
+  const FontPreference(this.value);
+
+  final String value;
+
+  static FontPreference fromString(String? value) {
+    return FontPreference.values.firstWhere(
+      (e) => e.value == value,
+      orElse: () => FontPreference.system,
+    );
   }
 }
 

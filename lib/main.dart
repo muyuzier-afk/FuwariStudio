@@ -101,15 +101,18 @@ class _FuwariEditorAppState extends State<FuwariEditorApp> {
       child: Consumer<AppState>(
         builder: (context, state, _) {
           final seed = state.themeSeedColor;
+          final useMiSansFont = state.fontPreference == FontPreference.miSans;
           return MaterialApp(
             title: 'FuwariStudio',
             theme: buildAppTheme(
               brightness: Brightness.light,
               seedColor: seed,
+              useMiSansFont: useMiSansFont,
             ),
             darkTheme: buildAppTheme(
               brightness: Brightness.dark,
               seedColor: seed,
+              useMiSansFont: useMiSansFont,
             ),
             themeMode: state.themeMode,
             home: state.hasRepo ? const PostsScreen() : const GuidedSetupScreen(),

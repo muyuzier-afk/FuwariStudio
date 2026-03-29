@@ -53,6 +53,12 @@ class AboutScreen extends StatelessWidget {
                 title: Text('项目地址'),
                 subtitle: SelectableText('https://github.com/muyuzier-afk/FuwariStudio'),
               ),
+              const ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.font_download_outlined),
+                title: Text('字体'),
+                subtitle: Text('可选：MiSans © Xiaomi'),
+              ),
               const SizedBox(height: 24),
               Align(
                 alignment: Alignment.centerRight,

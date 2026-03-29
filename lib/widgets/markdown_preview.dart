@@ -23,18 +23,7 @@ class MarkdownPreview extends StatelessWidget {
     final surface = theme.colorScheme.surface;
     final surfaceVariant = theme.colorScheme.surfaceContainerHighest;
     final outline = theme.colorScheme.outlineVariant;
-    const fontFallback = <String>[
-      'MiSans',
-      'Noto Sans SC',
-      'PingFang SC',
-      'Microsoft YaHei',
-      'Segoe UI',
-      'Roboto',
-    ];
-
     final baseText = (theme.textTheme.bodyMedium ?? const TextStyle()).copyWith(
-      fontFamily: 'MiSans',
-      fontFamilyFallback: fontFallback,
       color: textColor,
       height: 1.6,
     );
@@ -45,20 +34,14 @@ class MarkdownPreview extends StatelessWidget {
       strong: baseText.copyWith(fontWeight: FontWeight.w700),
       em: baseText.copyWith(fontStyle: FontStyle.italic),
       h1: theme.textTheme.headlineMedium?.copyWith(
-        fontFamily: 'MiSans',
-        fontFamilyFallback: fontFallback,
         fontWeight: FontWeight.w800,
         color: textColor,
       ),
       h2: theme.textTheme.headlineSmall?.copyWith(
-        fontFamily: 'MiSans',
-        fontFamilyFallback: fontFallback,
         fontWeight: FontWeight.w800,
         color: textColor,
       ),
       h3: theme.textTheme.titleLarge?.copyWith(
-        fontFamily: 'MiSans',
-        fontFamilyFallback: fontFallback,
         fontWeight: FontWeight.w800,
         color: textColor,
       ),
@@ -94,10 +77,15 @@ class MarkdownPreview extends StatelessWidget {
       ),
     );
 
+    final normalizedMarkdown = markdown
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+
     return Container(
       color: surface,
       child: Markdown(
-        data: markdown,
+        data: normalizedMarkdown,
         selectable: false,
         softLineBreak: true,
         padding: const EdgeInsets.all(18),

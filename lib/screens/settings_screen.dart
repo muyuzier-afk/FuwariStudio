@@ -88,6 +88,16 @@ class SettingsScreen extends StatelessWidget {
                       },
               ),
               SwitchListTile(
+                title: const Text('使用 MiSans 字体'),
+                subtitle: const Text('关闭则使用系统默认字体（默认）'),
+                value: appState.fontPreference == FontPreference.miSans,
+                onChanged: (value) async {
+                  await appState.setFontPreference(
+                    value ? FontPreference.miSans : FontPreference.system,
+                  );
+                },
+              ),
+              SwitchListTile(
                 title: const Text('自动保存并推送'),
                 subtitle: const Text('保存文章后自动提交并推送到 GitHub'),
                 value: appState.autoCommit,

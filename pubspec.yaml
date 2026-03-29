@@ -32,10 +32,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/fonts/
   fonts:
     - family: MiSans
       fonts:
-        - asset: assets/fonts/MiSans-Bold.ttf
-          weight: 700
+        - asset: assets/fonts/MiSansVF.ttf
