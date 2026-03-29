@@ -32,9 +32,22 @@ jobs:
             echo "Release already exists: $TAG"
             exit 0
           fi
+
+          NOTES_FILE="$(mktemp)"
+          if [ -f CHANGELOG.md ]; then
+            awk -v tag="$TAG" '
+              BEGIN { found=0 }
+              $0 ~ "^##[[:space:]]*" tag "([[:space:]]|$)" { found=1; next }
+              found && $0 ~ "^##[[:space:]]+" { exit }
+              found { print }
+            ' CHANGELOG.md > "$NOTES_FILE" || true
+          fi
+          if [ ! -s "$NOTES_FILE" ]; then
+            echo "Automated build for $TAG." > "$NOTES_FILE"
+          fi
           gh release create "$TAG" \
             --title "Release $TAG" \
-            --notes "Automated build for $TAG."
+            --notes-file "$NOTES_FILE"
 
   build_android:
     runs-on: ubuntu-latest
